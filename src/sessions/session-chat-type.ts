@@ -7,8 +7,37 @@ import {
 } from "./session-chat-type-shared.js";
 import { parseAgentSessionKey } from "./session-key-utils.js";
 
+export function isSharedChannelSessionKey(sessionKey: string | undefined | null): boolean {
+  const chatType = deriveSessionChatTypeFromKey(sessionKey);
+  return chatType === "group" || chatType === "channel";
+}
+
+export function isPrivateMemorySessionKey(sessionKey: string | undefined | null): boolean {
+  if (!sessionKey) {
+    return true;
+  }
+  const chatType = deriveSessionChatTypeFromKey(sessionKey);
+  if (chatType === "group" || chatType === "channel") {
+    return false;
+  }
+  if (chatType === "direct") {
+    return true;
+  }
+  const raw = normalizeLowercaseStringOrEmpty(sessionKey);
+  if (!raw) {
+    return true;
+  }
+  const scoped = parseAgentSessionKey(raw)?.rest ?? raw;
+  if (scoped === "main" || scoped === "chat:main") {
+    return true;
+  }
+  return false;
+}
+
 // Session chat-type derivation first uses generic key parsing, then falls back
 // to bootstrap channel plugins for legacy platform-specific session keys.
+// Agents and bootstrap code must use deriveSessionChatTypeFromKey instead of
+// this function to keep channel-plugin discovery out of the agent hot path.
 type LegacySessionChatTypeDeriver = NonNullable<
   NonNullable<ReturnType<typeof getBootstrapChannelPlugin>>["messaging"]
 >["deriveLegacySessionChatType"];
@@ -42,33 +71,6 @@ function derivePluginLegacySessionChatType(
     return undefined;
   }
   return deriveLegacySessionChatType(scopedSessionKey);
-}
-
-export function isSharedChannelSessionKey(sessionKey: string | undefined | null): boolean {
-  const chatType = deriveSessionChatType(sessionKey);
-  return chatType === "group" || chatType === "channel";
-}
-
-export function isPrivateMemorySessionKey(sessionKey: string | undefined | null): boolean {
-  if (!sessionKey) {
-    return true;
-  }
-  const chatType = deriveSessionChatType(sessionKey);
-  if (chatType === "group" || chatType === "channel") {
-    return false;
-  }
-  if (chatType === "direct") {
-    return true;
-  }
-  const raw = normalizeLowercaseStringOrEmpty(sessionKey);
-  if (!raw) {
-    return true;
-  }
-  const scoped = parseAgentSessionKey(raw)?.rest ?? raw;
-  if (scoped === "main" || scoped === "chat:main") {
-    return true;
-  }
-  return false;
 }
 
 export function deriveSessionChatType(sessionKey: string | undefined | null): SessionKeyChatType {

@@ -247,6 +247,42 @@ describe("isPrivateMemorySessionKey", () => {
   });
 });
 
+// Regression: isSharedChannelSessionKey and isPrivateMemorySessionKey must not
+// reach getBootstrapChannelPlugin on the agent bootstrap hot path.
+vi.mock("../channels/plugins/bootstrap-registry.js", () => ({
+  getBootstrapChannelPlugin: vi.fn(() => {
+    throw new Error("bootstrap path must not call getBootstrapChannelPlugin");
+  }),
+}));
+
+describe("isPrivateMemorySessionKey no-plugin-discovery", () => {
+  it("does not call getBootstrapChannelPlugin for known group keys", () => {
+    expect(isPrivateMemorySessionKey("agent:main:telegram:group:-100123")).toBe(false);
+  });
+
+  it("does not call getBootstrapChannelPlugin for known direct keys", () => {
+    expect(isPrivateMemorySessionKey("agent:main:telegram:dm:123456")).toBe(true);
+  });
+
+  it("does not call getBootstrapChannelPlugin for unknown keys", () => {
+    expect(isPrivateMemorySessionKey("agent:main:webex:space:room1")).toBe(false);
+  });
+});
+
+describe("isSharedChannelSessionKey no-plugin-discovery", () => {
+  it("does not call getBootstrapChannelPlugin for known group keys", () => {
+    expect(isSharedChannelSessionKey("agent:main:telegram:group:-100123")).toBe(true);
+  });
+
+  it("does not call getBootstrapChannelPlugin for known direct keys", () => {
+    expect(isSharedChannelSessionKey("agent:main:telegram:dm:123456")).toBe(false);
+  });
+
+  it("does not call getBootstrapChannelPlugin for unknown keys", () => {
+    expect(isSharedChannelSessionKey("agent:main:webex:space:room1")).toBe(false);
+  });
+});
+
 describe("deriveSessionChatTypeFromKey", () => {
   it.each([
     { key: "agent:main:direct:user1", expected: "direct" },
